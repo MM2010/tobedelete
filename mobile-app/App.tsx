@@ -1,7 +1,11 @@
+// This import must be at the top
+import 'react-native-gesture-handler';
+
 import { WalletConnectModal, useWalletConnectModal } from '@walletconnect/modal-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Button, ActivityIndicator } from 'react-native';
 import { SessionProvider, useAuth } from './src/hooks/useAuth';
+import { RootNavigator } from './src/navigation/RootNavigator';
 
 // TODO: Replace this with your own project ID from cloud.walletconnect.com
 const projectId = '1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p';
@@ -17,9 +21,26 @@ const providerMetadata = {
   },
 };
 
+function AppContent() {
+    const { session, isLoading } = useAuth();
+
+    if (isLoading) {
+        // You might want a more sophisticated loading screen here
+        return (
+            <View style={styles.container}>
+                <ActivityIndicator size="large" />
+            </View>
+        );
+    }
+
+    // If there is a session, show the main app, otherwise show the Auth UI
+    return session ? <RootNavigator /> : <AuthUI />;
+}
+
+
 function AuthUI() {
   const { open, isConnected, address, provider } = useWalletConnectModal();
-  const { signIn, signOut, session, isLoading } = useAuth();
+  const { signIn, isLoading } = useAuth();
 
   const handleConnect = () => {
     if (isConnected) {
@@ -29,17 +50,10 @@ function AuthUI() {
     }
   };
 
-  const handleSignOut = () => {
-    signOut();
-    // We also disconnect the wallet on sign out for a clean state
-    if (isConnected) {
-      provider?.disconnect();
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>SIWE Authentication</Text>
+      <Text style={styles.title}>Welcome</Text>
+      <Text style={styles.subtitle}>Please connect your wallet and sign in.</Text>
 
       {/* Wallet Connection Section */}
       <View style={styles.section}>
@@ -51,31 +65,22 @@ function AuthUI() {
             {address}
           </Text>
         )}
-        {!session && (
-          <Button
-            title={isConnected ? 'Disconnect Wallet' : 'Connect Wallet'}
-            onPress={handleConnect}
-          />
-        )}
+        <Button
+          title={isConnected ? 'Disconnect Wallet' : 'Connect Wallet'}
+          onPress={handleConnect}
+        />
       </View>
 
       {/* Authentication Section */}
-      <View style={styles.section}>
-        <Text style={styles.status}>
-          Session: {session ? 'Signed In' : 'Signed Out'}
-        </Text>
-        {isLoading && <ActivityIndicator size="large" color="#0000ff" />}
-
-        {isConnected && !session && !isLoading && (
-          <Button title="Sign In With Ethereum" onPress={() => signIn().catch(alert)} />
-        )}
-
-        {session && !isLoading && (
-          <Button title="Sign Out" onPress={handleSignOut} />
-        )}
-      </View>
-
-      <StatusBar style="auto" />
+      {isConnected && (
+        <View style={styles.section}>
+            {isLoading ? (
+                <ActivityIndicator size="large" color="#0000ff" />
+            ) : (
+                <Button title="Sign In With Ethereum" onPress={() => signIn().catch(alert)} />
+            )}
+        </View>
+      )}
     </View>
   );
 }
@@ -84,12 +89,13 @@ export default function App() {
   return (
     <>
       <SessionProvider>
-        <AuthUI />
+        <AppContent />
       </SessionProvider>
       <WalletConnectModal
         projectId={projectId}
         providerMetadata={providerMetadata}
       />
+      <StatusBar style="auto" />
     </>
   );
 }
@@ -105,6 +111,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    marginBottom: 10,
+  },
+   subtitle: {
+    fontSize: 16,
+    color: '#666',
     marginBottom: 20,
   },
   section: {
